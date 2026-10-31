@@ -16,10 +16,15 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "permissions" -> {
-                        val perms = if (Build.VERSION.SDK_INT >= 31)
-                            arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
-                        else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
-                        requestPermissions(perms, 1)
+                        val perms = mutableListOf<String>()
+                        if (Build.VERSION.SDK_INT >= 31) {
+                            perms.add(Manifest.permission.BLUETOOTH_SCAN)
+                            perms.add(Manifest.permission.BLUETOOTH_CONNECT)
+                        }
+                        perms.add(Manifest.permission.ACCESS_FINE_LOCATION)
+                        perms.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+                        if (Build.VERSION.SDK_INT >= 33) perms.add(Manifest.permission.POST_NOTIFICATIONS)
+                        requestPermissions(perms.toTypedArray(), 1)
                         result.success(null)
                     }
                     "notifSettings" -> {
@@ -27,6 +32,15 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
                     "connect" -> { BleBridge.connect(); result.success(null) }
+                    "gpsStart" -> {
+                        val i = Intent(this, GpsSpeedService::class.java)
+                        if (Build.VERSION.SDK_INT >= 26) startForegroundService(i) else startService(i)
+                        result.success(null)
+                    }
+                    "gpsStop" -> {
+                        stopService(Intent(this, GpsSpeedService::class.java))
+                        result.success(null)
+                    }
                     "send" -> {
                         BleBridge.send(
                             call.argument<Int>("dir") ?: 0,
@@ -43,7 +57,14 @@ class MainActivity : FlutterActivity() {
                     "status" -> {
                         val enabled = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
                             ?.contains(packageName) == true
-                        result.success(mapOf("ble" to BleBridge.status, "raw" to BleBridge.lastRaw, "notif" to enabled))
+                        val gpsFresh = System.currentTimeMillis() - BleBridge.gpsTime < 4000
+                        val gps = if (gpsFresh) "${BleBridge.gpsKmh} km/h" else "off / no fix yet"
+                        result.success(mapOf(
+                            "ble" to BleBridge.status,
+                            "raw" to BleBridge.lastRaw,
+                            "notif" to enabled,
+                            "gps" to gps
+                        ))
                     }
                     else -> result.notImplemented()
                 }
