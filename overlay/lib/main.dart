@@ -41,14 +41,18 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> refresh() async {
-    final r = await ch.invokeMapMethod<String, dynamic>('status');
-    if (r == null || !mounted) return;
-    setState(() {
-      ble = r['ble'] as String;
-      raw = r['raw'] as String;
-      notif = r['notif'] as bool;
-      gps = r['gps'] as String;
-    });
+    try {
+      final r = await ch.invokeMapMethod<String, dynamic>('status');
+      if (r == null || !mounted) return;
+      setState(() {
+        ble = (r['ble'] ?? '...').toString();
+        raw = (r['raw'] ?? '').toString();
+        notif = r['notif'] == true;
+        gps = (r['gps'] ?? 'off').toString();
+      });
+    } catch (e) {
+      if (mounted) setState(() => ble = 'status error: $e');
+    }
   }
 
   Future<void> call(String m, [Map<String, int>? args]) => ch.invokeMethod(m, args);
