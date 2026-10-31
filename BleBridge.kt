@@ -22,6 +22,8 @@ object BleBridge {
 
     @Volatile var status = "Not connected"
     @Volatile var lastRaw = "(no navigation notification seen yet)"
+    @Volatile var gpsKmh = 0          // latest phone GPS speed
+    @Volatile var gpsTime = 0L        // when it was measured (0 = never)
     private var lastDir = -1
     private var lastDist = -1
     private var lastSend = 0L
@@ -129,6 +131,11 @@ object BleBridge {
     // 20 unit ON, 21 unit OFF, 22 buzzer ON, 23 buzzer OFF
     fun sendCommand(code: Int) {
         write(byteArrayOf(code.toByte(), 0, 0, 0))
+    }
+
+    // 12 = speed-only packet from the phone GPS service
+    fun sendSpeed(kmh: Int) {
+        write(byteArrayOf(12, 0, 0, kmh.coerceIn(0, 255).toByte()))
     }
 }
 
