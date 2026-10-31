@@ -131,3 +131,4 @@ object BleBridge {
         write(byteArrayOf(code.toByte(), 0, 0, 0))
     }
 }
+
