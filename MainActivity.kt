@@ -1,6 +1,9 @@
 package com.nelson.navled
 
 import android.Manifest
+import android.app.NotificationManager
+import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
@@ -55,8 +58,13 @@ class MainActivity : FlutterActivity() {
                         result.success(null)
                     }
                     "status" -> {
-                        val enabled = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
-                            ?.contains(packageName) == true
+                        val enabled = if (Build.VERSION.SDK_INT >= 27) {
+                            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                            nm.isNotificationListenerAccessGranted(ComponentName(this, NavListenerService::class.java))
+                        } else {
+                            Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
+                                ?.contains(packageName) == true
+                        }
                         val gpsFresh = System.currentTimeMillis() - BleBridge.gpsTime < 4000
                         val gps = if (gpsFresh) "${BleBridge.gpsKmh} km/h" else "off / no fix yet"
                         result.success(mapOf(
