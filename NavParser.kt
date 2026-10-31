@@ -65,3 +65,4 @@ object NavParser {
         return Pair(dir, metres ?: 1500)
     }
 }
+
