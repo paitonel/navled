@@ -25,6 +25,7 @@ class _HomePageState extends State<HomePage> {
   String ble = '...';
   String raw = '';
   bool notif = false;
+  String gps = 'off';
   Timer? timer;
 
   @override
@@ -46,6 +47,7 @@ class _HomePageState extends State<HomePage> {
       ble = r['ble'] as String;
       raw = r['raw'] as String;
       notif = r['notif'] as bool;
+      gps = r['gps'] as String;
     });
   }
 
@@ -81,6 +83,13 @@ class _HomePageState extends State<HomePage> {
             btn('2. Notification access', () => call('notifSettings')),
             btn('3. Connect', () => call('connect')),
           ]),
+          const SizedBox(height: 12),
+          Text('Phone GPS speed: $gps', style: const TextStyle(fontSize: 18)),
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            btn('Start GPS speed', () => call('gpsStart')),
+            btn('Stop GPS speed', () => call('gpsStop')),
+          ]),
           const Divider(height: 32),
           const Text('Unit control'),
           const SizedBox(height: 8),
@@ -110,6 +119,9 @@ class _HomePageState extends State<HomePage> {
             tst('Arrived', 8, 0),
             tst('Faster route', 9, 0),
             tst('Hazard', 10, 0),
+            tst('Speed 70 km/h', 12, 0, 70),
+            tst('Speed 100 km/h', 12, 0, 100),
+            tst('Speed 130 km/h', 12, 0, 130),
             tst('Clear', 0, 0),
           ]),
           const Divider(height: 32),
