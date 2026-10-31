@@ -51,9 +51,18 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> call(String m, [Map<String, int>? args]) => ch.invokeMethod(m, args);
 
-  Widget btn(String label, VoidCallback f) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: FilledButton(onPressed: f, child: Text(label)),
+  Widget btn(String label, VoidCallback f) =>
+      FilledButton(onPressed: f, child: Text(label));
+
+  Widget cmd(String label, int code, Color color) => FilledButton(
+        style: FilledButton.styleFrom(backgroundColor: color),
+        onPressed: () => call('cmd', {'code': code}),
+        child: Text(label),
+      );
+
+  Widget tst(String label, int dir, int dist, [int speed = 0]) => FilledButton.tonal(
+        onPressed: () => call('send', {'dir': dir, 'dist': dist, 'speed': speed}),
+        child: Text(label),
       );
 
   @override
@@ -67,24 +76,44 @@ class _HomePageState extends State<HomePage> {
           Text('Notification access: ${notif ? "ON" : "OFF"}',
               style: TextStyle(fontSize: 18, color: notif ? Colors.greenAccent : Colors.orangeAccent)),
           const SizedBox(height: 12),
-          btn('1. Allow Bluetooth', () => call('permissions')),
-          btn('2. Turn on notification access', () => call('notifSettings')),
-          btn('3. Connect to NavTurnLED', () => call('connect')),
-          const Divider(height: 32),
-          const Text('Test the LEDs'),
-          Row(children: [
-            Expanded(child: btn('Left 100 m', () => call('send', {'dir': 1, 'dist': 100}))),
-            const SizedBox(width: 8),
-            Expanded(child: btn('Right 100 m', () => call('send', {'dir': 2, 'dist': 100}))),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            btn('1. Allow Bluetooth', () => call('permissions')),
+            btn('2. Notification access', () => call('notifSettings')),
+            btn('3. Connect', () => call('connect')),
           ]),
-          Row(children: [
-            Expanded(child: btn('Left 250 m', () => call('send', {'dir': 1, 'dist': 250}))),
-            const SizedBox(width: 8),
-            Expanded(child: btn('Right 250 m', () => call('send', {'dir': 2, 'dist': 250}))),
-          ]),
-          btn('Clear', () => call('send', {'dir': 0, 'dist': 0})),
           const Divider(height: 32),
-          const Text('Last Google Maps notification text:'),
+          const Text('Unit control'),
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            cmd('Unit ON', 20, Colors.green.shade700),
+            cmd('Unit OFF', 21, Colors.red.shade700),
+            cmd('Buzzer ON', 22, Colors.blue.shade700),
+            cmd('Buzzer OFF', 23, Colors.orange.shade800),
+          ]),
+          const Divider(height: 32),
+          const Text('Test (signal relay switches on when closer than 5 s at that speed)'),
+          const SizedBox(height: 8),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            tst('Left 900 m', 1, 900, 60),
+            tst('Left 400 m', 1, 400, 60),
+            tst('Left 150 m @60', 1, 150, 60),
+            tst('Left 60 m @60', 1, 60, 60),
+            tst('Right 900 m', 2, 900, 60),
+            tst('Right 150 m @60', 2, 150, 60),
+            tst('Right 60 m @60', 2, 60, 60),
+            tst('Right 100 m @100', 2, 100, 100),
+            tst('Straight', 3, 0),
+            tst('U-turn 100 m', 4, 100),
+            tst('Roundabout left', 5, 200),
+            tst('Roundabout straight', 6, 200),
+            tst('Roundabout right', 7, 200),
+            tst('Arrived', 8, 0),
+            tst('Faster route', 9, 0),
+            tst('Hazard', 10, 0),
+            tst('Clear', 0, 0),
+          ]),
+          const Divider(height: 32),
+          const Text('Last navigation notification text:'),
           const SizedBox(height: 6),
           Text(raw, style: const TextStyle(color: Colors.white70)),
         ],
@@ -92,3 +121,4 @@ class _HomePageState extends State<HomePage> {
     );
   }
 }
+
