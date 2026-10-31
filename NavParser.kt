@@ -8,7 +8,7 @@ object NavParser {
     private val distRe = Regex("""(\d+(?:[.,]\d+)?)\s*(km|m|mi|ft|yd)\b""")
     private val hazardWords = listOf(
         "speed camera", "red light camera", "traffic camera", "police",
-        "accident", "crash", "hazard", "road closed"
+        "accident", "crash", "hazard", "road closed", "pothole", "speed trap", "mobile camera"
     )
 
     private fun distance(t: String): Int? {
