@@ -54,7 +54,9 @@ class NavListenerService : NotificationListenerService() {
         BleBridge.lastRaw = "[${sbn.packageName.substringAfterLast('.')}] $text"
         val p = NavParser.parse(text) ?: return
         updateSpeed(p.first, p.second)
-        BleBridge.send(p.first, p.second, false, estKmh.toInt())
+        val gpsFresh = System.currentTimeMillis() - BleBridge.gpsTime < 4000
+        val spd = if (gpsFresh) BleBridge.gpsKmh else estKmh.toInt()
+        BleBridge.send(p.first, p.second, false, spd)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
