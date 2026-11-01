@@ -1,15 +1,24 @@
 package com.nelson.navled
 
+// mode: 1 left, 2 right, 3 straight, 4 u-turn, 5/6/7 roundabout left/straight/right,
+// 8 arrived, 9 faster route, 10 hazard.
+// exit: roundabout exit number (0 = unknown). warn: 1 police, 2 camera, 3 pothole, 4 other.
+data class NavInfo(val mode: Int, val dist: Int, val exit: Int = 0, val warn: Int = 0)
+
 object NavParser {
     // South Africa drives on the left: roundabout exit 1 = left, 2 = straight, 3+ = right.
     // Set to false for right-hand traffic countries.
     const val LEFT_HAND_TRAFFIC = true
 
     private val distRe = Regex("""(\d+(?:[.,]\d+)?)\s*(km|m|mi|ft|yd)\b""")
-    private val hazardWords = listOf(
-        "speed camera", "red light camera", "traffic camera", "police",
-        "accident", "crash", "hazard", "road closed", "pothole", "speed trap", "mobile camera"
+
+    private val policeWords = listOf("police")
+    private val cameraWords = listOf(
+        "speed camera", "red light camera", "traffic camera", "mobile camera",
+        "speed trap", "average speed"
     )
+    private val potholeWords = listOf("pothole")
+    private val otherHazardWords = listOf("accident", "crash", "hazard", "road closed")
 
     private fun distance(t: String): Int? {
         val m = distRe.find(t) ?: return null
@@ -30,15 +39,23 @@ object NavParser {
         return null
     }
 
-    // Modes: 1 left, 2 right, 3 straight, 4 u-turn, 5/6/7 roundabout left/straight/right,
-    // 8 arrived, 9 faster route, 10 hazard. Returns Pair(mode, metres) or null.
-    fun parse(raw: String): Pair<Int, Int>? {
+    private fun warningType(t: String): Int = when {
+        policeWords.any { t.contains(it) } -> 1
+        cameraWords.any { t.contains(it) } -> 2
+        potholeWords.any { t.contains(it) } -> 3
+        otherHazardWords.any { t.contains(it) } -> 4
+        else -> 0
+    }
+
+    fun parse(raw: String): NavInfo? {
         val t = raw.lowercase()
         val metres = distance(t)
 
-        if (t.contains("arrived")) return Pair(8, 0)
-        if (t.contains("faster route")) return Pair(9, 0)
-        if (hazardWords.any { t.contains(it) }) return Pair(10, metres ?: 0)
+        if (t.contains("arrived")) return NavInfo(8, 0)
+        if (t.contains("faster route")) return NavInfo(9, 0)
+
+        val warn = warningType(t)
+        if (warn != 0) return NavInfo(10, metres ?: 0, 0, warn)
 
         if (t.contains("roundabout") || t.contains("traffic circle")) {
             val n = exitNumber(t)
@@ -52,7 +69,7 @@ object NavParser {
                 t.contains("right") -> 7
                 else -> 6
             }
-            return Pair(mode, metres ?: 1500)
+            return NavInfo(mode, metres ?: 1500, n ?: 0, 0)
         }
 
         val dir = when {
@@ -62,7 +79,7 @@ object NavParser {
             t.contains("straight") || t.contains("continue") -> 3
             else -> return null
         }
-        return Pair(dir, metres ?: 1500)
+        return NavInfo(dir, metres ?: 1500)
     }
 }
 
