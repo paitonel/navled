@@ -49,7 +49,9 @@ class MainActivity : FlutterActivity() {
                             call.argument<Int>("dir") ?: 0,
                             call.argument<Int>("dist") ?: 0,
                             true,
-                            call.argument<Int>("speed") ?: 0
+                            call.argument<Int>("speed") ?: 0,
+                            call.argument<Int>("exit") ?: 0,
+                            call.argument<Int>("warn") ?: 0
                         )
                         result.success(null)
                     }
