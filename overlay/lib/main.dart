@@ -66,8 +66,8 @@ class _HomePageState extends State<HomePage> {
         child: Text(label),
       );
 
-  Widget tst(String label, int dir, int dist, [int speed = 0]) => FilledButton.tonal(
-        onPressed: () => call('send', {'dir': dir, 'dist': dist, 'speed': speed}),
+  Widget tst(String label, int dir, int dist, [int speed = 0, int exit = 0, int warn = 0]) => FilledButton.tonal(
+        onPressed: () => call('send', {'dir': dir, 'dist': dist, 'speed': speed, 'exit': exit, 'warn': warn}),
         child: Text(label),
       );
 
@@ -122,7 +122,14 @@ class _HomePageState extends State<HomePage> {
             tst('Roundabout right', 7, 200),
             tst('Arrived', 8, 0),
             tst('Faster route', 9, 0),
-            tst('Hazard', 10, 0),
+            tst('Police 300 m', 10, 300, 0, 0, 1),
+            tst('Camera 300 m', 10, 300, 0, 0, 2),
+            tst('Pothole 100 m', 10, 100, 0, 0, 3),
+            tst('Hazard', 10, 0, 0, 0, 4),
+            tst('Roundabout exit 1', 5, 200, 0, 1),
+            tst('Roundabout exit 2', 6, 200, 0, 2),
+            tst('Roundabout exit 3', 7, 200, 0, 3),
+            tst('Roundabout exit 4', 7, 200, 0, 4),
             tst('Speed 70 km/h', 12, 0, 70),
             tst('Speed 100 km/h', 12, 0, 100),
             tst('Speed 130 km/h', 12, 0, 130),
