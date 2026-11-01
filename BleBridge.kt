@@ -26,6 +26,7 @@ object BleBridge {
     @Volatile var gpsTime = 0L        // when it was measured (0 = never)
     private var lastDir = -1
     private var lastDist = -1
+    private var lastWarn = 0
     private var lastSend = 0L
 
     // The unit clears itself after 15 s without data, so while a turn is active
@@ -112,17 +113,21 @@ object BleBridge {
     }
 
     // dir: 0 none, 1 left, 2 right, 3 straight, 4 u-turn, 5-7 roundabout, 8 arrived,
-    // 9 faster route, 10 hazard. dist in metres, speed in km/h (0 = unknown).
-    fun send(dir: Int, dist: Int, force: Boolean = false, speed: Int = 0) {
+    // 9 faster route, 10 hazard. dist in metres, speed in km/h (0 = unknown),
+    // exit = roundabout exit number (0 = unknown), warn = 1 police, 2 camera, 3 pothole, 4 other.
+    fun send(dir: Int, dist: Int, force: Boolean = false, speed: Int = 0, exit: Int = 0, warn: Int = 0) {
         if (gatt == null || ch == null) return
         val d = dist.coerceIn(0, 65535)
         val sp = speed.coerceIn(0, 255)
         val now = System.currentTimeMillis()
         val oneShot = dir in 8..10
-        if (!force && oneShot && dir == lastDir && now - lastSend < 30000) return
+        if (!force && oneShot && dir == lastDir && warn == lastWarn && now - lastSend < 30000) return
         if (!force && !oneShot && dir == lastDir && Math.abs(d - lastDist) < 10 && now - lastSend < 2000) return
-        lastDir = dir; lastDist = d; lastSend = now
-        val pkt = byteArrayOf(dir.toByte(), (d shr 8).toByte(), (d and 0xFF).toByte(), sp.toByte())
+        lastDir = dir; lastDist = d; lastSend = now; lastWarn = warn
+        val pkt = byteArrayOf(
+            dir.toByte(), (d shr 8).toByte(), (d and 0xFF).toByte(), sp.toByte(),
+            exit.coerceIn(0, 9).toByte(), warn.coerceIn(0, 4).toByte()
+        )
         lastPacket = if (!force && dir in 1..7) pkt else null
         lastPacketTime = now
         write(pkt)
