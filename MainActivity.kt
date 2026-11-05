@@ -1,96 +1,106 @@
 package com.nelson.navled
 
-import android.app.Notification
-import android.app.NotificationChannel
+import android.Manifest
 import android.app.NotificationManager
-import android.app.Service
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ServiceInfo
-import android.location.Location
-import android.location.LocationListener
-import android.location.LocationManager
+import android.content.pm.PackageManager
 import android.os.Build
-import android.os.Bundle
-import android.os.IBinder
+import android.provider.Settings
+import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 
-// Foreground service: reads phone GPS speed once a second and sends it to the LED unit.
-class GpsSpeedService : Service() {
-    private var lm: LocationManager? = null
-
-    private val listener = object : LocationListener {
-        override fun onLocationChanged(location: Location) {
-            if (!location.hasSpeed()) {
-                BleBridge.gpsStatus = "running, position found but no speed yet"
-                return
-            }
-            var kmh = Math.round(location.speed * 3.6f)
-            if (kmh < 2) kmh = 0                      // GPS noise while standing still
-            BleBridge.gpsKmh = kmh
-            BleBridge.gpsTime = System.currentTimeMillis()
-            BleBridge.gpsStatus = "running"
-            BleBridge.sendSpeed(kmh, if (location.hasBearing() && kmh >= 5) location.bearing.toInt() else -1)
-        }
-        override fun onProviderEnabled(provider: String) {
-            BleBridge.gpsStatus = "running, waiting for a GPS fix"
-        }
-        override fun onProviderDisabled(provider: String) {
-            BleBridge.gpsStatus = "Location is switched off in the phone settings"
-        }
-        override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
-    }
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+class MainActivity : FlutterActivity() {
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
         BleBridge.init(this)
-        BleBridge.connect()
-        BleBridge.gpsStatus = "starting ..."
-
-        try {
-            if (Build.VERSION.SDK_INT >= 26) {
-                val nm = getSystemService(NotificationManager::class.java)
-                nm.createNotificationChannel(
-                    NotificationChannel("gps", "GPS speed", NotificationManager.IMPORTANCE_LOW)
-                )
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "navled")
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "permissions" -> {
+                        val perms = mutableListOf<String>()
+                        if (Build.VERSION.SDK_INT >= 31) {
+                            perms.add(Manifest.permission.BLUETOOTH_SCAN)
+                            perms.add(Manifest.permission.BLUETOOTH_CONNECT)
+                        }
+                        perms.add(Manifest.permission.ACCESS_FINE_LOCATION)
+                        perms.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+                        if (Build.VERSION.SDK_INT >= 33) perms.add(Manifest.permission.POST_NOTIFICATIONS)
+                        requestPermissions(perms.toTypedArray(), 1)
+                        result.success(true)
+                    }
+                    "notifSettings" -> {
+                        startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))
+                        result.success(true)
+                    }
+                    "connect" -> { BleBridge.connect(); result.success(true) }
+                    "gpsStart" -> {
+                        val missing = Build.VERSION.SDK_INT >= 23 &&
+                            checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                        if (missing) {
+                            BleBridge.gpsStatus = "location permission needed: accept it, then tap Start GPS speed again"
+                            requestPermissions(
+                                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION), 2
+                            )
+                            result.success(false)
+                        } else {
+                            val i = Intent(this, GpsSpeedService::class.java)
+                            if (Build.VERSION.SDK_INT >= 26) startForegroundService(i) else startService(i)
+                            result.success(true)
+                        }
+                    }
+                    "gpsStop" -> {
+                        stopService(Intent(this, GpsSpeedService::class.java))
+                        BleBridge.gpsStatus = "off"
+                        result.success(true)
+                    }
+                    "send" -> {
+                        result.success(
+                            BleBridge.send(
+                                call.argument<Int>("dir") ?: 0,
+                                call.argument<Int>("dist") ?: 0,
+                                true,
+                                call.argument<Int>("speed") ?: 0,
+                                call.argument<Int>("exit") ?: 0,
+                                call.argument<Int>("warn") ?: 0,
+                                call.argument<Int>("variant") ?: 0
+                            )
+                        )
+                    }
+                    "cmd" -> {
+                        result.success(
+                            BleBridge.sendCommand(call.argument<Int>("code") ?: 0, call.argument<Int>("value") ?: 0)
+                        )
+                    }
+                    "speed" -> {
+                        result.success(BleBridge.sendSpeed(call.argument<Int>("kmh") ?: 0))
+                    }
+                    "status" -> {
+                        val enabled = if (Build.VERSION.SDK_INT >= 27) {
+                            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                            nm.isNotificationListenerAccessGranted(ComponentName(this, NavListenerService::class.java))
+                        } else {
+                            Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
+                                ?.contains(packageName) == true
+                        }
+                        val gpsFresh = System.currentTimeMillis() - BleBridge.gpsTime < 4000
+                        val gps = if (gpsFresh) "${BleBridge.gpsKmh} km/h" else "no speed yet"
+                        result.success(mapOf(
+                            "ble" to BleBridge.status,
+                            "connected" to BleBridge.isConnected(),
+                            "raw" to BleBridge.lastRaw,
+                            "notif" to enabled,
+                            "gps" to gps,
+                            "gpsStatus" to BleBridge.gpsStatus,
+                            "log" to BleBridge.logText(),
+                            "native" to "v7"
+                        ))
+                    }
+                    else -> result.notImplemented()
+                }
             }
-            val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, "gps")
-                          else Notification.Builder(this)
-            val n = builder
-                .setContentTitle("NavTurnLED")
-                .setContentText("Sending GPS speed to the LED unit")
-                .setSmallIcon(android.R.drawable.ic_menu_mylocation)
-                .setOngoing(true)
-                .build()
-            if (Build.VERSION.SDK_INT >= 29)
-                startForeground(1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
-            else startForeground(1, n)
-        } catch (e: Exception) {
-            BleBridge.gpsStatus = "could not start (${e.javaClass.simpleName}): allow Location, then try again"
-            stopSelf()
-            return START_NOT_STICKY
-        }
-
-        val manager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        lm = manager
-        try {
-            BleBridge.gpsStatus = if (manager.isProviderEnabled(LocationManager.GPS_PROVIDER))
-                "running, waiting for a GPS fix"
-            else "Location is switched off in the phone settings"
-            manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 0f, listener)
-        } catch (e: SecurityException) {
-            BleBridge.gpsStatus = "location permission missing: tap 1. Allow Bluetooth and accept Location"
-            stopSelf()
-        }
-        return START_NOT_STICKY
     }
-
-    override fun onDestroy() {
-        try { lm?.removeUpdates(listener) } catch (e: Exception) {}
-        BleBridge.gpsTime = 0
-        if (BleBridge.gpsStatus.startsWith("running") || BleBridge.gpsStatus.startsWith("starting"))
-            BleBridge.gpsStatus = "off"
-        super.onDestroy()
-    }
-
-    override fun onBind(intent: Intent?): IBinder? = null
 }
 
