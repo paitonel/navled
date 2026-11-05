@@ -29,6 +29,7 @@ class _HomePageState extends State<HomePage> {
   String log = '';
   bool notif = false;
   bool connected = false;
+  String nativeVer = '';
   Timer? timer;
   Timer? speedTimer;
   int? testKmh;
@@ -53,6 +54,7 @@ class _HomePageState extends State<HomePage> {
       setState(() {
         ble = (r['ble'] ?? '...').toString();
         connected = r['connected'] == true;
+        nativeVer = (r['native'] ?? 'old').toString();
         raw = (r['raw'] ?? '').toString();
         notif = r['notif'] == true;
         gps = (r['gps'] ?? 'no speed yet').toString();
@@ -155,6 +157,17 @@ class _HomePageState extends State<HomePage> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          if (nativeVer.isNotEmpty && nativeVer != 'v7')
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(10),
+              color: Colors.red.shade900,
+              child: const Text(
+                'The Android part of this app is OUTDATED (screen v7, Android files older). '
+                'Replace the whole overlay folder in the GitHub project with navled_overlay_complete.zip.',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
           Row(children: [
             Icon(Icons.circle, size: 14, color: connected ? Colors.greenAccent : Colors.orangeAccent),
             const SizedBox(width: 8),
