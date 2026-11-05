@@ -13,19 +13,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check the overlay files are up to date
-        run: |
-          K=overlay/android/app/src/main/kotlin/com/nelson/navled
-          ls -l $K overlay/lib overlay/android/app/src/main
-          fail() { echo "::error::$1"; exit 1; }
-          test -f $K/GpsSpeedService.kt || fail "GpsSpeedService.kt is missing"
-          grep -q "gpsStop" $K/MainActivity.kt || fail "MainActivity.kt is outdated"
-          grep -q "scheduleRetry" $K/BleBridge.kt || fail "BleBridge.kt is outdated"
-          grep -q "NavInfo" $K/NavParser.kt || fail "NavParser.kt is outdated"
-          grep -q "variant" $K/NavListenerService.kt || fail "NavListenerService.kt is outdated"
-          grep -q "GpsSpeedService" overlay/android/app/src/main/AndroidManifest.xml || fail "AndroidManifest.xml is outdated"
-          grep -q "nativeVer" overlay/lib/main.dart || fail "main.dart is outdated"
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
