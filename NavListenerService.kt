@@ -9,6 +9,7 @@ class NavListenerService : NotificationListenerService() {
 
     // Speed estimate from how fast the distance to the next turn shrinks.
     private var estKmh = 0.0
+    private var lastLogged = ""
     private var prevDist = -1
     private var prevMode = -1
     private var prevT = 0L
@@ -19,7 +20,7 @@ class NavListenerService : NotificationListenerService() {
     }
 
     private fun updateSpeed(mode: Int, dist: Int) {
-        if (mode !in 1..7) return
+        if (mode !in 1..7 && mode !in 13..16) return
         val now = System.currentTimeMillis()
         if (prevDist < 0 || mode != prevMode) {
             prevDist = dist; prevMode = mode; prevT = now
@@ -52,11 +53,18 @@ class NavListenerService : NotificationListenerService() {
         )
         val text = keys.joinToString(" | ") { e.getCharSequence(it)?.toString() ?: "" }
         BleBridge.lastRaw = "[${sbn.packageName.substringAfterLast('.')}] $text"
-        val p = NavParser.parse(text) ?: return
+        val p = NavParser.parse(text)
+        if (text != lastLogged) {                     // notification log (last 20, shown in the app)
+            lastLogged = text
+            val result = if (p == null) "ignored"
+                else "mode=${p.mode} dist=${p.dist} exit=${p.exit} warn=${p.warn} variant=${p.variant}"
+            BleBridge.addLog("[${sbn.packageName.substringAfterLast('.')}] ${text.replace('\n', ' ')}  =>  $result")
+        }
+        if (p == null) return
         updateSpeed(p.mode, p.dist)
         val gpsFresh = System.currentTimeMillis() - BleBridge.gpsTime < 4000
         val spd = if (gpsFresh) BleBridge.gpsKmh else estKmh.toInt()
-        BleBridge.send(p.mode, p.dist, false, spd, p.exit, p.warn)
+        BleBridge.send(p.mode, p.dist, false, spd, p.exit, p.warn, p.variant)
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
